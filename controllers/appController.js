@@ -1,5 +1,7 @@
 const { data } = require("react-router-dom")
 const userModel = require("../models/user")
+const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
 
 exports.homepage = (req,res)=>{
     try{
@@ -43,19 +45,63 @@ exports.signUp = async (req,res)=>{
     //         message:`user with this email already exists`
     //     })
     // }
+    const saltPassword = await bcrypt.genSalt(10)
+    const hashpassword = await bcrypt.hash(password,saltPassword)
     const userinfo = {
         firstName:firstName.trim().charAt(0).toUpperCase()+firstName.trim().slice(1),
         lastName:lastName.trim().charAt(0).toUpperCase()+lastName.trim().slice(1),
         email:email.trim().toLowerCase(),
-        password
+        password:hashpassword,
+        role:"teacher"
     }
 
         const user = await userModel.create(userinfo)
         res.status(200).json({
-            message:`user created successfully`,
+            message:`Teacher profile created successfully`,
             data:user
         })
     } catch (error){
         res.status(500).json({message:"Something went wrong", error:error.message})
     }
+}
+
+exports.login = async (req, res) => {
+
+    try {
+  const { email, password } = req.body
+
+  const checkuser = await userModel.findOne({ email:email.trim().toLowerCase()
+
+   })
+
+//   if (!checkuser.isVerified){
+//     return res.status(400).json({ message: "Invalid email" })
+//   }
+
+  if(!checkuser){
+            return res.status(404).json({
+                message: `user not found`
+            })
+        }
+
+  const checkPassword = await bcrypt.compare(password, checkuser.password)
+
+//   if (!checkPassword){
+//      return res.status(400).json({ message: "Invalid password" })
+//   }
+
+  const token = jwt.sign(
+    { id: checkuser._id, role: checkuser.role },
+    "John",
+    { expiresIn: "1d" })
+
+    return res.status(200).json({
+            message: `Login successful`,
+            data:checkuser,
+            token
+        })
+
+} catch (error) {
+    res.status(500).json({ message: "Something went wrong", error: error.message })
+}
 }
